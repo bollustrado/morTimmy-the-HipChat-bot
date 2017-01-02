@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import asyncio
-from aiohttp import web, MultiDict, ClientSession
+from aiohttp import web, MultiDict, ClientSession, BasicAuth
 import ssl
 import logging
 from .utils import print_json
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,26 @@ class Bot:
         logger.debug('Adding route POST /uninstaller')
         self.app.router.add_route('POST', '/uninstaller', self.uninstaller)
 
+    async def get_access_token(self, oauth_id):
+        """Retrieves an access token from HipChat server
+
+        These tokens typically expire after one hour.
+
+        :param oauth_id: The oAuth ID to retrieve a token for
+        """
+
+        installation = self.installations[oauth_id]
+
+        payload = "grant_type=client_credentials"
+        auth = BasicAuth(installation['oauthId'], installation['oauthSecret'])
+        headers = MultiDict({'Content-Type': 'application/x-www-form-urlencoded'})
+
+        async with ClientSession(loop=self.loop) as session:
+            async with session.post(installation['tokenUrl'], auth=auth, data=payload, headers=headers) as response:
+                data = await response.json()
+
+                self.access_tokens[oauth_id] = data
+
     async def capabilities_descriptor(self, request):
         """Returns the bot capabilities to the HipChat server"""
 
@@ -100,7 +121,7 @@ class Bot:
                 }
             }
         }
- 
+
         return web.json_response(capabilities, status=200)
 
     async def installer(self, request):
@@ -125,6 +146,9 @@ class Bot:
 
         logger.debug('Storing installation data')
         self.installations[data['oauthId']] = data
+
+        logger.debug('Retrieving access token')
+        await self.get_access_token(data['oauthId'])
 
         return web.Response(status=204)
 
