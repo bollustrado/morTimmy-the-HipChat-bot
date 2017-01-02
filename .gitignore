@@ -1,5 +1,6 @@
 # Application related
 config.json
+log.*
 
 # Certificates
 *.csr
