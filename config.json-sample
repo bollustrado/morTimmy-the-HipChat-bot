@@ -1,0 +1,14 @@
+[
+    {
+        "name": "morTimmy",
+        "description": "The Coolest Bot in Town!!",
+        "host": ""
+        "port": 6666,
+        "ssl_crt": "certs/insertyour.crt",
+        "ssl_key": "certs/insertyour.key",
+        "token": "",
+        "motd": "motd.txt",
+        "bot_version": "v0.1",
+        "author": "BDFL M. Mortimer"
+    }
+]

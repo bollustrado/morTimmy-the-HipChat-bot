@@ -1,6 +1,8 @@
 # Application related
 config.json
 log.*
+create_cert.sh
+.*.swp
 
 # Certificates
 *.csr

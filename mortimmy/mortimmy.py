@@ -13,18 +13,18 @@ logger = logging.getLogger(__name__)
 class Bot:
 
     def __init__(self,
-                 name="morTimmy", description='The coolest bot in town',
-                 host="new.mortimer.nl", port=6666,
+                 name, description,
+                 host, port,
+                 ssl_crt, ssl_key,
                  loop=None,
-                 in_global=False, in_room=True,
-                 ssl_crt='/home/mortimerm/development/morTimmy-the-HipChat-bot/mortimmy/new.mortimer.nl.crt',
-                 ssl_key='/home/mortimerm/development/morTimmy-the-HipChat-bot/mortimmy/new.mortimer.nl.key'):
+                 in_global=False, in_room=True):
         """Initialise bot
 
         :param name: Name of the bot/application
         :param description: Description of the bot/appication
         :param host: IP or hostname to listen on
         :param port: TCP port number to listen on
+
         :param loop: Asyncio loop to utilise
         :param in_global: Can the bot be installed globally
         :param in_room: Can the bot be installed in a room
