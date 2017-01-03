@@ -16,8 +16,7 @@ if __name__ == '__main__':
         name,  description,
         host, port,
         ssl_crt, ssl_key,
-        token, motd,
-        bot_version, author
+        motd, bot_version, author
     ) = load_config_file()
 
     morTimmy = Bot(

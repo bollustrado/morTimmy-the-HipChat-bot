@@ -16,7 +16,6 @@ def load_config_file(filename='config.json'):
         config[0]['port'],
         config[0]['ssl_crt'],
         config[0]['ssl_key'],
-        config[0]['token'],
         config[0]['motd'],
         config[0]['bot_version'],
         config[0]['author']
