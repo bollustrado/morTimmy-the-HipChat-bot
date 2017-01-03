@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import time
 import asyncio
 from aiohttp import web, MultiDict, ClientSession, BasicAuth
 import ssl
@@ -86,7 +87,7 @@ class Bot:
         )
 
     def register_routes(self):
-        """Registers all HTTP routes"""
+        """Register all HTTP routes"""
         logger.debug('Adding route GET /capabilities')
         self.app.router.add_route('GET', '/capabilities', self.capabilities_descriptor)
         logger.debug('Adding route POST /installer')
@@ -102,9 +103,16 @@ class Bot:
 
                 if self.installations:
                     logging.debug('Checking for missing or expiring access tokens')
+
                     for oauth_id in self.installations.keys():
+                        time_to_renew = time.time() - 300
+
                         if oauth_id not in self.access_tokens:
                             logging.debug('Installation {} has no access token'.format(oauth_id))
+                            await self.get_access_token(oauth_id)
+
+                        elif self.access_tokens[oauth_id]['expires_at'] < time_to_renew:
+                            logging.debug('Installation {} will expire soon'.format(oauth_id))
                             await self.get_access_token(oauth_id)
 
         except asyncio.CancelledError:
@@ -118,8 +126,10 @@ class Bot:
 
                 if self.installations and self.access_tokens:
                     logging.debug('Sending test notification')
+
                     for oauth_id in self.installations.keys():
                         await self.send_message(oauth_id, '3441596', 'Hello World!')
+
         except asyncio.CancelledError:
             pass
 
@@ -139,8 +149,14 @@ class Bot:
 
         logging.debug('Retrieving access token for oauth_id {}'.format(oauth_id))
         async with ClientSession(loop=self.loop) as session:
-            async with session.post(installation['tokenUrl'], auth=auth, data=payload, headers=headers) as response:
+            async with session.post(installation['tokenUrl'],
+                                    auth=auth,
+                                    data=payload,
+                                    headers=headers) as response:
                 data = await response.json()
+
+                # Calculating expiration time minus 60sec for a bit of leeway
+                data['expires_at'] = time.time() - 60 - int(data['expires_in'])
 
                 self.access_tokens[oauth_id] = data
 
@@ -173,7 +189,9 @@ class Bot:
 
         logging.debug('Sending message {} to room id {}'.format(message, room_id))
         async with ClientSession(loop=self.loop) as session:
-            async with session.post(notification_url, data=json.dumps(payload), headers=headers) as response:
+            async with session.post(notification_url,
+                                    data=json.dumps(payload),
+                                    headers=headers) as response:
                 data = await response.text()
                 print(data)
 
@@ -229,13 +247,6 @@ class Bot:
 
         logger.debug('Storing installation data')
         self.installations[data['oauthId']] = data
-
-        # TODO Move this out of here
-        # We should check for the presence of a (valid) token
-        # for each installation in a async loop somewhere
-        # and request/renew the access token there
-        #logger.debug('Retrieving access token')
-        #await self.get_access_token(data['oauthId'])
 
         return web.Response(status=204)
 
