@@ -211,7 +211,10 @@ class Bot:
             "capabilities": {
                 "hipchatApiConsumer": {
                     "scopes": [
-                        "send_notification"
+                        "send_notification",
+                        "admin_room",
+                        "send_message",
+                        "view_group"
                     ]
                 },
                 "installable": {
