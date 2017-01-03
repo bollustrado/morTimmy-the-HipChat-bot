@@ -53,11 +53,31 @@ class Bot:
         self.app = web.Application(loop=self.loop)
         self.register_routes()
 
+    async def start_background_tasks(self, app):
+        """Starts any required background tasks"""
+        app['refresh_access_tokens'] = app.loop.create_task(self.refresh_access_tokens(app))
+        app['test_notifications'] = app.loop.create_task(self.test_notifications(app))
+
+    async def cleanup_background_tasks(self, app):
+        """Cleans up after any running background tasks"""
+        app['refresh_access_tokens'].cancel()
+        await app['refresh_access_tokens']
+
+        app['test_notifications'].cancel()
+        await app['test_notifications']
+
     def start(self):
         """Starts the HipChat bot"""
+
+        # Initialise SSL certificate for HTTPS daemon
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
         ssl_context.load_cert_chain(self.ssl_crt, keyfile=self.ssl_key)
 
+        # Register background tasks
+        self.app.on_startup.append(self.start_background_tasks)
+        self.app.on_cleanup.append(self.cleanup_background_tasks)
+
+        # Run the HTTPS daemon
         web.run_app(
             self.app,
             host=self.host,
@@ -74,6 +94,35 @@ class Bot:
         logger.debug('Adding route POST /uninstaller')
         self.app.router.add_route('POST', '/uninstaller', self.uninstaller)
 
+    async def refresh_access_tokens(self, app):
+        """Handles non-existing or expiring access tokens for all installations"""
+        try:
+            while True:
+                await asyncio.sleep(10)
+
+                if self.installations:
+                    logging.debug('Checking for missing or expiring access tokens')
+                    for oauth_id in self.installations.keys():
+                        if oauth_id not in self.access_tokens:
+                            logging.debug('Installation {} has no access token'.format(oauth_id))
+                            await self.get_access_token(oauth_id)
+
+        except asyncio.CancelledError:
+            pass
+
+    async def test_notifications(self, app):
+        """Sends a test noticification to a room every 10sec"""
+        try:
+            while True:
+                await asyncio.sleep(10)
+
+                if self.installations and self.access_tokens:
+                    logging.debug('Sending test notification')
+                    for oauth_id in self.installations.keys():
+                        await self.send_message(oauth_id, '3441596', 'Hello World!')
+        except asyncio.CancelledError:
+            pass
+
     async def get_access_token(self, oauth_id):
         """Retrieves an access token from HipChat server
 
@@ -88,11 +137,45 @@ class Bot:
         auth = BasicAuth(installation['oauthId'], installation['oauthSecret'])
         headers = MultiDict({'Content-Type': 'application/x-www-form-urlencoded'})
 
+        logging.debug('Retrieving access token for oauth_id {}'.format(oauth_id))
         async with ClientSession(loop=self.loop) as session:
             async with session.post(installation['tokenUrl'], auth=auth, data=payload, headers=headers) as response:
                 data = await response.json()
 
                 self.access_tokens[oauth_id] = data
+
+    async def send_message(self, oauth_id, room_id, message, html=True):
+        """Sends a message to a room
+
+        :param oauth_id: The ID of the installation
+        :param room_id: The ID of the room
+        :param message: The message to send
+        :param html: Is the message HTML formatted
+        """
+        installation = self.installations[oauth_id]
+        notification_url = "{}room/{}/notification".format(installation['apiUrl'], room_id)
+        headers = MultiDict(
+            {
+                'Authorization': 'Bearer {}'.format(self.access_tokens[oauth_id]['access_token']),
+                'Content-Type': 'application/json'
+            }
+        )
+        payload = {
+                'message': message,
+                'notify': False,
+                'color': 'gray'
+        }
+
+        if html:
+            payload['message_format'] = 'html'
+        else:
+            payload['message_format'] = ' text'
+
+        logging.debug('Sending message {} to room id {}'.format(message, room_id))
+        async with ClientSession(loop=self.loop) as session:
+            async with session.post(notification_url, data=json.dumps(payload), headers=headers) as response:
+                data = await response.text()
+                print(data)
 
     async def capabilities_descriptor(self, request):
         """Returns the bot capabilities to the HipChat server"""
@@ -147,8 +230,12 @@ class Bot:
         logger.debug('Storing installation data')
         self.installations[data['oauthId']] = data
 
-        logger.debug('Retrieving access token')
-        await self.get_access_token(data['oauthId'])
+        # TODO Move this out of here
+        # We should check for the presence of a (valid) token
+        # for each installation in a async loop somewhere
+        # and request/renew the access token there
+        #logger.debug('Retrieving access token')
+        #await self.get_access_token(data['oauthId'])
 
         return web.Response(status=204)
 
