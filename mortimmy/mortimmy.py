@@ -170,8 +170,6 @@ class AddOn:
                 access_tokens = self.db.read_access_tokens()
 
                 if installations and access_tokens:
-                    logging.debug('Sending test notification')
-
                     for oauth_id in installations.keys():
                         await self.send_message(oauth_id, '3441596', 'Hello World!')
 
@@ -201,9 +199,13 @@ class AddOn:
                 data = await response.json()
 
                 # Calculating expiration time minus 60sec for a bit of leeway
-                data['expires_at'] = time.time() - 60 - int(data['expires_in'])
+                try:
+                    data['expires_at'] = time.time() + int(data['expires_in']) - 60
+                except KeyError:
+                    logging.debug('Error getting access token, HipChat response: {}'.format(data))
+                    exit(-1)
 
-                self.db.write_access_token(data)
+                self.db.write_access_token(oauth_id, data)
 
     async def send_message(self, oauth_id, room_id, message, html=True):
         """Sends a message to a room
@@ -240,7 +242,6 @@ class AddOn:
                                     data=json.dumps(payload),
                                     headers=headers) as response:
                 data = await response.text()
-                print(data)
 
     async def capabilities_descriptor(self, request):
         """Returns the Add-On capabilities to the HipChat server"""

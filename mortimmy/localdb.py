@@ -13,58 +13,69 @@ class LocalDB:
         self.installation_filename = installation_filename
         self.token_filename = token_filename
 
+        # Create empty files if they don't exist yet
+        try:
+            self.read_installations()
+        except FileNotFoundError:
+            with open(self.installation_filename, 'w') as f:
+                json.dump([{}], f)
+
+        try:
+            self.read_access_tokens()
+        except FileNotFoundError:
+            with open(self.token_filename, 'w') as f:
+                json.dump([{}], f)
+
     def write_installation(self, installation):
 
         installations = self.read_installations()
 
         oauth_id = installation['oauthId']
-        installations[0][oauth_id] = installation
+        installations[oauth_id] = installation
 
         self._file_wr(self.installation_filename, installations)
 
     def del_installation(self, oauth_id):
         installations = self.read_installations()
 
-        if oauth_id in installations[0]:
-            del installations[0][oauth_id]
+        if oauth_id in installations:
+            del installations[oauth_id]
             self._file_wr(self.installation_filename, installations)
 
     def read_installations(self):
-        return self._file_r(self.installation_filename)
+        return self._file_r(self.installation_filename)[0]
 
     def read_installation(self, oauth_id):
         """returns a single installation"""
         installations = self.read_installations()
-        return installations[0].get(oauth_id, None)
+        return installations.get(oauth_id, None)
 
-    def write_access_token(self, token):
+    def write_access_token(self, oauth_id, token):
         tokens = self.read_access_tokens()
-        tokens.append(token)
 
-        oauth_id = token['oauthId']
-        tokens[0][oauth_id] = token
+        tokens[oauth_id] = token
 
-        self._file_w(self.token_filename, tokens)
+        self._file_wr(self.token_filename, tokens)
 
     def del_access_token(self, oauth_id):
         tokens = self.read_access_tokens()
 
-        if oauth_id in tokens[0]:
-            del tokens[0][oauth_id]
-            self._file_w(self.token_filename, tokens)
+        if oauth_id in tokens:
+            del tokens[oauth_id]
+            self._file_wr(self.token_filename, tokens)
 
     def read_access_tokens(self):
-        return self._file_r(self.token_filename)
+        return self._file_r(self.token_filename)[0]
 
     def read_access_token(self, oauth_id):
         """returns a single access_token"""
         tokens = self.read_access_tokens()
-        return tokens[0].get(oauth_id, None)
+        return tokens.get(oauth_id, None)
 
     def _file_wr(self, filename, data):
         """Helper function to write a file"""
         with open(filename, 'w') as f:
-            json.dump(data, f)
+            json.dump([data], f)
 
     def _file_r(self, filename):
         """Helper function to read a file"""

@@ -3,6 +3,7 @@ config.json
 log.*
 create_cert.sh
 .*.swp
+db/*
 
 # Certificates
 *.csr
