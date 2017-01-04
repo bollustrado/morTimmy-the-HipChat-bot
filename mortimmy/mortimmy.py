@@ -10,6 +10,22 @@ import json
 
 logger = logging.getLogger(__name__)
 
+# TODO Create a decorator that validates the JWT tokens on each incoming request
+
+class Webhook:
+    def capabilities(self):
+        pass
+
+
+class Glance:
+    def capabilities(self):
+        pass
+
+
+class Sidebar:
+    def capabilities(self):
+        pass
+
 
 class Bot:
 
@@ -17,8 +33,12 @@ class Bot:
                  name, description,
                  host, port,
                  ssl_crt, ssl_key,
+                 webhooks=[],
+                 glances=[],
+                 sidebars=[],
                  loop=None,
-                 in_global=False, in_room=True):
+                 in_global=False, in_room=True,
+                 avatar_url=None, avatar_url_hi=None):
         """Initialise bot
 
         :param name: Name of the bot/application
@@ -26,9 +46,15 @@ class Bot:
         :param host: IP or hostname to listen on
         :param port: TCP port number to listen on
 
+        :param webhooks: list of `class`:Webhook
+        :param glances: list of `class`:Glance
+        :param sidebars: list of `class`:Sidebar
+
         :param loop: Asyncio loop to utilise
         :param in_global: Can the bot be installed globally
         :param in_room: Can the bot be installed in a room
+        :param avatar_url: Avatar image url
+        :param avatar_url_hi: @2x (high dpi) avatar image url
         """
 
         self.host = host
@@ -39,6 +65,12 @@ class Bot:
         self.in_room = in_room
         self.ssl_crt = ssl_crt
         self.ssl_key = ssl_key
+        self.avatar_url = avatar_url
+        self.avatar_url_hi = avatar_url_hi
+
+        self.webhooks = webhooks
+        self.glances = glances
+        self.sidebars = sidebars
 
         self.bot_url = "https://{}:{}/".format(host, port)
 
@@ -225,6 +257,10 @@ class Bot:
                 }
             }
         }
+
+        capabilities['webhook'] = [webhook.capabilities() for webhook in self.webhooks]
+        capabilities['glance'] = [glance.capabilities() for glance in self.glances]
+        capabilities['webPanel'] = [sidebar.capabilities() for sidebar in self.sidebars]
 
         return web.json_response(capabilities, status=200)
 

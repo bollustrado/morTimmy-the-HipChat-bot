@@ -16,12 +16,14 @@ if __name__ == '__main__':
         name,  description,
         host, port,
         ssl_crt, ssl_key,
-        motd, bot_version, author
+        motd, bot_version, author,
+        avatar_url, avatar_url_hi
     ) = load_config_file()
 
     morTimmy = Bot(
         name=name, description=description,
         host=host, port=port,
         ssl_crt=ssl_crt, ssl_key=ssl_key,
+        avatar_url=avatar_url, avatar_url_hi=avatar_url_hi
     )
     morTimmy.start()

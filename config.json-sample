@@ -8,6 +8,8 @@
         "ssl_key": "certs/insertyour.key",
         "motd": "motd.txt",
         "bot_version": "v0.1",
-        "author": "BDFL M. Mortimer"
+        "author": "BDFL M. Mortimer",
+        "avatar_url": null,
+        "avatar_url_hi": null
     }
 ]
