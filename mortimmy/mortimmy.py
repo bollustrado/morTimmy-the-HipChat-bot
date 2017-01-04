@@ -12,11 +12,10 @@ logger = logging.getLogger(__name__)
 
 # TODO Create a decorator that validates the JWT tokens on each incoming request
 
+
 class HipChat:
     """Object for working with (non add-on) HipChat REST API"""
     pass
-
-
 
 
 class Webhook:
