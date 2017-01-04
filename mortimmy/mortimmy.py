@@ -17,6 +17,7 @@ class Bot:
                  name, description,
                  host, port,
                  ssl_crt, ssl_key,
+                 database,
                  loop=None,
                  in_global=False, in_room=True):
         """Initialise bot
@@ -25,6 +26,7 @@ class Bot:
         :param description: Description of the bot/appication
         :param host: IP or hostname to listen on
         :param port: TCP port number to listen on
+        :param database: The installation/token database class
 
         :param loop: Asyncio loop to utilise
         :param in_global: Can the bot be installed globally
@@ -39,12 +41,9 @@ class Bot:
         self.in_room = in_room
         self.ssl_crt = ssl_crt
         self.ssl_key = ssl_key
+        self.db = database
 
         self.bot_url = "https://{}:{}/".format(host, port)
-
-        # TODO: These list should be replaced by permanent storage(e.g sqlite)
-        self.installations = {}
-        self.access_tokens = {}
 
         if loop:
             self.loop = loop
@@ -101,17 +100,20 @@ class Bot:
             while True:
                 await asyncio.sleep(10)
 
-                if self.installations:
+                installations = db.read_installations()
+                access_tokens = db.read_access_tokens()
+
+                if .installations:
                     logging.debug('Checking for missing or expiring access tokens')
 
-                    for oauth_id in self.installations.keys():
+                    for oauth_id in installations.keys():
                         time_to_renew = time.time() - 300
 
-                        if oauth_id not in self.access_tokens:
+                        if oauth_id not in access_tokens:
                             logging.debug('Installation {} has no access token'.format(oauth_id))
                             await self.get_access_token(oauth_id)
 
-                        elif self.access_tokens[oauth_id]['expires_at'] < time_to_renew:
+                        elif access_tokens[oauth_id]['expires_at'] < time_to_renew:
                             logging.debug('Installation {} will expire soon'.format(oauth_id))
                             await self.get_access_token(oauth_id)
 
@@ -124,10 +126,13 @@ class Bot:
             while True:
                 await asyncio.sleep(10)
 
-                if self.installations and self.access_tokens:
+                installations = db.read_installations()
+                access_tokens = db.read_access_tokens()
+
+                if installations and access_tokens:
                     logging.debug('Sending test notification')
 
-                    for oauth_id in self.installations.keys():
+                    for oauth_id in installations.keys():
                         await self.send_message(oauth_id, '3441596', 'Hello World!')
 
         except asyncio.CancelledError:
@@ -141,10 +146,10 @@ class Bot:
         :param oauth_id: The oAuth ID to retrieve a token for
         """
 
-        installation = self.installations[oauth_id]
+        installation = db.read_installation(oauth_id)
 
         payload = "grant_type=client_credentials"
-        auth = BasicAuth(installation['oauthId'], installation['oauthSecret'])
+        auth = BasicAuth(oauth_id, installation['oauthSecret'])
         headers = MultiDict({'Content-Type': 'application/x-www-form-urlencoded'})
 
         logging.debug('Retrieving access token for oauth_id {}'.format(oauth_id))
@@ -158,7 +163,7 @@ class Bot:
                 # Calculating expiration time minus 60sec for a bit of leeway
                 data['expires_at'] = time.time() - 60 - int(data['expires_in'])
 
-                self.access_tokens[oauth_id] = data
+                db.write_access_token(data)
 
     async def send_message(self, oauth_id, room_id, message, html=True):
         """Sends a message to a room
@@ -168,11 +173,13 @@ class Bot:
         :param message: The message to send
         :param html: Is the message HTML formatted
         """
-        installation = self.installations[oauth_id]
+        installation = db.read_installation(oauth_id)
+        access_token = db.read_access_token(oauth_id)
+
         notification_url = "{}room/{}/notification".format(installation['apiUrl'], room_id)
         headers = MultiDict(
             {
-                'Authorization': 'Bearer {}'.format(self.access_tokens[oauth_id]['access_token']),
+                'Authorization': 'Bearer {}'.format(access_token['access_token']),
                 'Content-Type': 'application/json'
             }
         )
@@ -249,7 +256,7 @@ class Bot:
                 data['apiUrl'] = capabilities['capabilities']['hipchatApiProvider']['url']
 
         logger.debug('Storing installation data')
-        self.installations[data['oauthId']] = data
+        db.write_installation(data)
 
         return web.Response(status=204)
 
@@ -269,7 +276,8 @@ class Bot:
             async with session.get(data['installableUrl']) as response:
                 capabilities = await response.json()
 
-                del self.installations[capabilities['oauthId']]
-                del self.access_tokens[capabilities['oauthId']]
+                oauth_id = capabilities['oauthId']
+                db.del_installation(oauth_id)
+                db.del_access_token(oauth_id)
 
         return web.Response(status=302, headers=MultiDict({'Location': data['redirectUrl']}))
