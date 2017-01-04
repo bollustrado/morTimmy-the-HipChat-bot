@@ -16,8 +16,8 @@ if __name__ == '__main__':
         name,  description,
         host, port,
         ssl_crt, ssl_key,
-        token, motd,
-        bot_version, author
+        motd, bot_version, author,
+        avatar_url, avatar_url_hi
     ) = load_config_file()
 
     database = LocalDB()
@@ -26,6 +26,10 @@ if __name__ == '__main__':
         name=name, description=description,
         host=host, port=port,
         ssl_crt=ssl_crt, ssl_key=ssl_key,
+<<<<<<< HEAD
         database
+=======
+        avatar_url=avatar_url, avatar_url_hi=avatar_url_hi
+>>>>>>> bccf12ce4e69e4155026238733fdc8828b40cd53
     )
     morTimmy.start()
