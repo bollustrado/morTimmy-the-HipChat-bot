@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from mortimmy import Bot, load_config_file, LocalDB
+from mortimmy import AddOn, load_config_file, LocalDB
 import logging
 
 
@@ -16,13 +16,13 @@ if __name__ == '__main__':
         name,  description,
         host, port,
         ssl_crt, ssl_key,
-        motd, bot_version, author,
+        motd, addon_version, author,
         avatar_url, avatar_url_hi
     ) = load_config_file()
 
     database = LocalDB()
 
-    morTimmy = Bot(
+    morTimmy = AddOn(
         name=name, description=description,
         host=host, port=port,
         ssl_crt=ssl_crt, ssl_key=ssl_key,

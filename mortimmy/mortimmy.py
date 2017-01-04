@@ -12,6 +12,13 @@ logger = logging.getLogger(__name__)
 
 # TODO Create a decorator that validates the JWT tokens on each incoming request
 
+class HipChat:
+    """Object for working with (non add-on) HipChat REST API"""
+    pass
+
+
+
+
 class Webhook:
     def capabilities(self):
         pass
@@ -27,7 +34,8 @@ class Sidebar:
         pass
 
 
-class Bot:
+class AddOn:
+    """Object for running a HipChat Add-On"""
 
     def __init__(self,
                  name, description,
@@ -40,10 +48,10 @@ class Bot:
                  loop=None,
                  in_global=False, in_room=True,
                  avatar_url=None, avatar_url_hi=None):
-        """Initialise bot
+        """Initialise Add-On
 
-        :param name: Name of the bot/application
-        :param description: Description of the bot/appication
+        :param name: Name of the Add-On
+        :param description: Description of the Add-On
         :param host: IP or hostname to listen on
         :param port: TCP port number to listen on
         :param database: The installation/token database class
@@ -53,8 +61,8 @@ class Bot:
         :param sidebars: list of `class`:Sidebar
 
         :param loop: Asyncio loop to utilise
-        :param in_global: Can the bot be installed globally
-        :param in_room: Can the bot be installed in a room
+        :param in_global: Can the Add-On be installed globally
+        :param in_room: Can the Add-On be installed in a room
         :param avatar_url: Avatar image url
         :param avatar_url_hi: @2x (high dpi) avatar image url
         """
@@ -76,7 +84,7 @@ class Bot:
         self.glances = glances
         self.sidebars = sidebars
 
-        self.bot_url = "https://{}:{}/".format(host, port)
+        self.addon_url = "https://{}:{}/".format(host, port)
 
         if loop:
             self.loop = loop
@@ -100,7 +108,7 @@ class Bot:
         await app['test_notifications']
 
     def start(self):
-        """Starts the HipChat bot"""
+        """Starts the HipChat Add-On"""
 
         # Initialise SSL certificate for HTTPS daemon
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
@@ -236,7 +244,7 @@ class Bot:
                 print(data)
 
     async def capabilities_descriptor(self, request):
-        """Returns the bot capabilities to the HipChat server"""
+        """Returns the Add-On capabilities to the HipChat server"""
 
         logger.debug('Received {} {}'.format(request.method, request.path))
 
@@ -245,8 +253,8 @@ class Bot:
             "description": self.description,
             "key": self.name,
             "links": {
-                "homepage": self.bot_url,
-                "self": "{}capabilities".format(self.bot_url)
+                "homepage": self.addon_url,
+                "self": "{}capabilities".format(self.addon_url)
             },
             "capabilities": {
                 "hipchatApiConsumer": {
@@ -260,8 +268,8 @@ class Bot:
                 "installable": {
                         "allowGlobal": self.in_global,
                         "allowRoom": self.in_room,
-                        "callbackUrl": "{}installer".format(self.bot_url),
-                        "uninstalledUrl": "{}uninstaller".format(self.bot_url)
+                        "callbackUrl": "{}installer".format(self.addon_url),
+                        "uninstalledUrl": "{}uninstaller".format(self.addon_url)
                 }
             }
         }
@@ -276,12 +284,12 @@ class Bot:
         """The installer endpoint
 
         This endpoint gets called by the HipChat server everytime a user installs
-        the app/bot
+        the Add-On
 
         :return: HTTP status 204
         """
         data = await request.json()
-        logger.debug('Received POST {}, payload {}'.format(self.bot_url + 'installed', data))
+        logger.debug('Received POST {}, payload {}'.format(self.addon_url + 'installed', data))
 
         # Retrieve the token and API endpoint URL from HipChat server
         logger.debug('Retrieving capabilities from HipChat server')
@@ -301,12 +309,12 @@ class Bot:
         """The installer endpoint
 
         This endpoint gets called by the HipChat server everytime a user uninstalls
-        the app/bot
+        the Add-On
 
         :return: HTTP redirect to HipChat redirectUrl
         """
         data = await request.json()
-        logger.debug('Received POST {}, payload {}'.format(self.bot_url + 'uninstalled', data))
+        logger.debug('Received POST {}, payload {}'.format(self.addon_url + 'uninstalled', data))
 
         logger.debug('Retrieving capabilities from HipChat server')
         async with ClientSession(loop=self.loop) as session:

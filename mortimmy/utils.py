@@ -17,7 +17,7 @@ def load_config_file(filename='config.json'):
         config[0]['ssl_crt'],
         config[0]['ssl_key'],
         config[0]['motd'],
-        config[0]['bot_version'],
+        config[0]['addon_version'],
         config[0]['author'],
         config[0]['avatar_url'],
         config[0]['avatar_url_hi']

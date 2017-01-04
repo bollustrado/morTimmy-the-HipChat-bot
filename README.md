@@ -1,1 +1,1 @@
-morTimmy the exensible HipChat bot written in Python 3.5s asyncio
+morTimmy the exensible HipChat Add-On written in Python 3.5s asyncio
