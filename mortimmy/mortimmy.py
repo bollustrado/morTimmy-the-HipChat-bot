@@ -18,9 +18,77 @@ class HipChat:
     pass
 
 
-class Webhook:
+class WebHook:
+    """Object containing parameters for a single webhook"""
+
+    def __init__(self, name, base_url, event, pattern=None, authentication=None):
+        """A WebHook object
+
+        :param name: name of the webhook. Will be used in the url
+        :param base_url: The full url of the HipChat Add-On
+        :param event: the webhook event (e.g. room_message)
+
+        :param pattern: regular expression to match on
+        :param authentication: None or jwt
+        """
+        self.name = name
+        # TODO Perhaps use a getter/setter for self.url so the hipchat add-on can set this
+        # when compiling the capabilities descriptor?
+        self.url = "{}/{}".format(base_url, name.lower())
+
+        if event not in ("room_archived", "room_created", "room_deleted", "room_enter",
+                "room_exit", "room_file_upload", "room_message", "room_notification",
+                "room_topic_change", "room_unarchived"):
+            raise ValueError("WebHook {} incorrect event type {}".format(name, event))
+
+        self.event = event
+
+        if authentication is None:
+            self.authentication = 'none'
+        elif authentication == 'jwt' or authentication == 'none':
+            self.authentication = authentication
+        else:
+            raise ValueError("WebHook {} authentication should be None or 'jwt'".format(name))
+
+        self.pattern = pattern
+
     def capabilities(self):
-        pass
+        """Returns JSON webhook entry for addition in capabilities descriptor"""
+        data = {
+            "url": self.url,
+            "event": self.event,
+            "authentication": self.authentication,
+            "name": self.name
+        }
+
+        if self.event in ('room_message', 'room_notification'):
+            data['pattern'] = self.pattern
+
+        return data
+
+    async def incoming(self, request):
+        """Incoming WebHook Post Request
+
+        :param request: aiohttp json request
+        """
+        # TODO, perhaps we should call a webhook class function here
+        # that will parse the awaited data. This function
+        # should be overwritten by all the Add On webhook subclasses
+        # allowing for simple plugins. If we don't do any
+        # blocking stuff in the plugin we could perhaps get
+        # away with non asyncio plugins. Best would be if we somehow
+        # can do both, perhaps have to have a asyncio and non-asyncio
+        # webhook class or make it a bolean option in the __init__
+        data = await request.json()
+        logger.debug('Received POST {}, payload {}'.format(self.url, data))
+
+        response = {
+            'from': 'MyFirstAddOn',
+            'message': '<h1>Hello World!</h1>',
+            'message_format': 'html'
+        }
+
+        return web.json_response(response, status=204)
 
 
 class Glance:
@@ -132,7 +200,11 @@ class AddOn:
         logger.debug('Adding route POST /installer')
         self.app.router.add_route('POST', '/installer', self.installer)
         logger.debug('Adding route POST /uninstaller')
-        self.app.router.add_route('POST', '/uninstaller', self.uninstaller)
+        self.app.router.add_route('GET', '/uninstaller', self.uninstaller)
+
+        for webhook in self.webhooks:
+            logger.debug('Adding route POST /{}'.format(webhook.name))
+            self.app.router.add_route('POST', '/{}'.format(webhook.name), webhook.incoming)
 
     async def refresh_access_tokens(self, app):
         """Handles non-existing or expiring access tokens for all installations"""
@@ -274,9 +346,9 @@ class AddOn:
             }
         }
 
-        capabilities['webhook'] = [webhook.capabilities() for webhook in self.webhooks]
-        capabilities['glance'] = [glance.capabilities() for glance in self.glances]
-        capabilities['webPanel'] = [sidebar.capabilities() for sidebar in self.sidebars]
+        capabilities['capabilities']['webhook'] = [webhook.capabilities() for webhook in self.webhooks]
+        capabilities['capabilities']['glance'] = [glance.capabilities() for glance in self.glances]
+        capabilities['capabilities']['webPanel'] = [sidebar.capabilities() for sidebar in self.sidebars]
 
         return web.json_response(capabilities, status=200)
 
@@ -313,15 +385,14 @@ class AddOn:
 
         :return: HTTP redirect to HipChat redirectUrl
         """
-        data = await request.json()
-        logger.debug('Received POST {}, payload {}'.format(self.addon_url + 'uninstalled', data))
+        logger.debug('Received GET {}'.format(self.addon_url + 'uninstalled'))
 
-        logger.debug('Retrieving capabilities from HipChat server')
         async with ClientSession(loop=self.loop) as session:
             async with session.get(data['installableUrl']) as response:
                 capabilities = await response.json()
 
                 oauth_id = capabilities['oauthId']
+                logger.debug('Removing installation and token for oauth_id {}'.format(oauth_id))
                 self.db.del_installation(oauth_id)
                 self.db.del_access_token(oauth_id)
 
