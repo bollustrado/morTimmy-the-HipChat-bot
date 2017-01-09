@@ -80,13 +80,15 @@ class WebHook:
         # can do both, perhaps have to have a asyncio and non-asyncio
         # webhook class or make it a bolean option in the __init__
         data = await request.json()
-        logger.debug('Received POST {}, payload {}'.format(self.url, data))
+        # logger.debug('Received POST {}, payload {}'.format(self.url, data))
 
         response = {
-            'from': 'MyFirstAddOn',
             'message': '<h1>Hello World!</h1>',
+            'notify': False,
+            'color': 'gray',
             'message_format': 'html'
         }
+        print_json(response)
 
         return web.json_response(response, status=204)
 
@@ -164,15 +166,15 @@ class AddOn:
     async def start_background_tasks(self, app):
         """Starts any required background tasks"""
         app['refresh_access_tokens'] = app.loop.create_task(self.refresh_access_tokens(app))
-        app['test_notifications'] = app.loop.create_task(self.test_notifications(app))
+        # app['test_notifications'] = app.loop.create_task(self.test_notifications(app))
 
     async def cleanup_background_tasks(self, app):
         """Cleans up after any running background tasks"""
         app['refresh_access_tokens'].cancel()
         await app['refresh_access_tokens']
 
-        app['test_notifications'].cancel()
-        await app['test_notifications']
+        # app['test_notifications'].cancel()
+        # await app['test_notifications']
 
     def start(self):
         """Starts the HipChat Add-On"""
@@ -334,6 +336,7 @@ class AddOn:
                         "send_notification",
                         "admin_room",
                         "send_message",
+                        "view_messages",
                         "view_group"
                     ]
                 },

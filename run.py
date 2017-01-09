@@ -26,7 +26,6 @@ if __name__ == '__main__':
         'slashcommands',
         'https://new.mortimer.nl:6666',
         'room_message',
-        #pattern='^/[eE][cC][hH][oO]'
         pattern='^/.*'
     )
 
